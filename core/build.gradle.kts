@@ -25,7 +25,8 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(idofrontLibs.kotlinx.serialization.json)
-            implementation(idofrontLibs.koin.core)
+            implementation(libs.kodein.di)
+            implementation(idofrontLibs.kermit)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

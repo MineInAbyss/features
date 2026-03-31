@@ -25,4 +25,4 @@ dependencyResolutionManagement {
     }
 }
 
-include("features")
+include("core")

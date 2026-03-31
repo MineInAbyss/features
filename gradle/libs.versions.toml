@@ -1,0 +1,5 @@
+[versions]
+kodein = "7.30.0"
+
+[libraries]
+kodein-di = { module = "org.kodein.di:kodein-di", version.ref = "kodein" }
