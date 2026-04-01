@@ -1,3 +1,3 @@
 plugins {
-    alias(idofrontLibs.plugins.kotlin.multiplatform) apply false
+    alias(libs.plugins.kotlin.multiplatform) apply false
 }

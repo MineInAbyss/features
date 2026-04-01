@@ -20,8 +20,8 @@ fun FeatureDI.addCloseables(vararg closeable: AutoCloseable) {
     closeable.forEach { instance<FeatureContext>().onClose.add(it) }
 }
 
-context(di: DirectDI)
-inline fun <reified T : Any> get() = di.instance<T>()
+//context(di: DirectDI)
+inline fun <reified T : Any> DirectDI.get() = di.instance<T>()
 
 fun feature(name: String, block: FeatureBuilder.() -> Unit): Feature<Unit> {
     return FeatureBuilder(name, Unit::class).apply(block).build(extract = { })

@@ -11,7 +11,7 @@ import org.kodein.di.*
 class FeatureManager(val rootDI: DI) {
     private val loadedFeatures = mutableSetOf<Feature<*>>()
     private val dependencies = mutableMapOf<Feature<*>, MutableSet<Feature<*>>>()
-    private val enabledFeatures = mutableMapOf<Feature<*>, FeatureInstance>()
+    private val enabledFeatures = mutableMapOf<String, FeatureInstance>()
     private val logger = rootDI.direct.instanceOrNull<Logger>() ?: Logger
     private val defaultModule = DI.Module("default", allowSilentOverride = true) {
         bindSingletonOf(::FeatureContext)
@@ -53,12 +53,12 @@ class FeatureManager(val rootDI: DI) {
     }
 
     fun enable(feature: Feature<*>): FeatureInstance {
-        if (feature in enabledFeatures) return enabledFeatures.getValue(feature)
+        if (feature.name in enabledFeatures) return enabledFeatures.getValue(feature.name)
         load(feature)
 //        if (!feature.canEnable()) error("Could not enable $feature")
         val di = DI {
             feature.dependencies.features.forEach {
-                val enabled = enabledFeatures[it] ?: enable(it)
+                val enabled = enabledFeatures[it.name] ?: enable(it)
                 extend(enabled.di, allowOverride = true)
             }
             extend(rootDI, allowOverride = true)
@@ -66,14 +66,14 @@ class FeatureManager(val rootDI: DI) {
             feature.diBuilder(this)
         }
         val instance = FeatureInstance(di)
-        enabledFeatures[feature] = instance
+        enabledFeatures[feature.name] = instance
         return instance
     }
 
     fun disable(feature: Feature<*>): List<Feature<*>> {
-        if (feature !in enabledFeatures) return emptyList()
+        if (feature.name !in enabledFeatures) return emptyList()
         val children = dependencies[feature]?.flatMap { disable(it) } ?: emptyList()
-        enabledFeatures.remove(feature)?.close()
+        enabledFeatures.remove(feature.name)?.close()
         return (children + feature).distinct()
     }
 
@@ -87,7 +87,7 @@ class FeatureManager(val rootDI: DI) {
     }
 
     fun disableAll() {
-        enabledFeatures.keys.toList().forEach { disable(it) }
+        enabledFeatures.keys.toList().forEach { name -> disable(loadedFeatures.first { it.name == name }) } //TODO cleanup
     }
 
     fun reloadAll() {
@@ -95,7 +95,7 @@ class FeatureManager(val rootDI: DI) {
         enableAll()
     }
 
-    fun getInstance(feature: Feature<*>): FeatureInstance? = enabledFeatures[feature]
+    fun getInstance(feature: Feature<*>): FeatureInstance? = enabledFeatures[feature.name]
 
     fun <T : Any> getOrNull(feature: Feature<T>): T? =
         getInstance(feature)?.di?.direct?.let { feature.extract(it) }

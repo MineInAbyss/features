@@ -1,5 +1,10 @@
 [versions]
+kotlin = "2.3.20"
 kodein = "7.30.0"
 
 [libraries]
 kodein-di = { module = "org.kodein.di:kodein-di", version.ref = "kodein" }
+kermit = "co.touchlab:kermit:2.0.5"
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

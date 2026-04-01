@@ -1,6 +1,6 @@
 plugins {
-    alias(idofrontLibs.plugins.mia.kotlin.multiplatform)
-    alias(idofrontLibs.plugins.mia.publication)
+    id(libs.plugins.kotlin.multiplatform.get().pluginId)
+    alias(miaConventions.plugins.mia.publication)
 }
 
 repositories {
@@ -8,6 +8,7 @@ repositories {
 }
 
 kotlin {
+    jvmToolchain(17)
     jvm()
     js(IR) {
         browser()
@@ -24,15 +25,15 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(idofrontLibs.kotlinx.serialization.json)
+//            implementation(idofrontLibs.kotlinx.serialization.json)
             implementation(libs.kodein.di)
-            implementation(idofrontLibs.kermit)
+            implementation(libs.kermit)
         }
-        commonTest.dependencies {
-            implementation(kotlin("test"))
-        }
-        all {
-            languageSettings.enableLanguageFeature("ContextParameters")
-        }
+//        commonTest.dependencies {
+//            implementation(kotlin("test"))
+//        }
+//        all {
+//            languageSettings.enableLanguageFeature("ContextParameters")
+//        }
     }
 }
