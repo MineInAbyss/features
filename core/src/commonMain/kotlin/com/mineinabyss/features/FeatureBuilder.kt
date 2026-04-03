@@ -4,7 +4,7 @@ import org.kodein.di.DI
 import org.kodein.di.DirectDI
 import kotlin.reflect.KClass
 
-data class LoadPredicate(val reason: String, val predicate: DirectDI.() -> Boolean)
+data class LoadPredicate(val predicate: DirectDI.() -> Unit)
 
 class FeatureBuilder(
     val name: String,
@@ -26,22 +26,16 @@ class FeatureBuilder(
 
     class FeatureDependenciesBuilder {
         private val features = mutableListOf<Feature<*>>()
-        private val plugins = mutableListOf<String>()
         private val conditions = mutableListOf<LoadPredicate>()
 
         fun features(vararg feature: Feature<*>) {
             features += feature
         }
 
-        fun plugins(vararg plugins: String) {
-            this.plugins += plugins
-        }
-
         fun condition(
-            reason: String = "Conditions not met",
-            predicate: DirectDI.() -> Boolean,
+            predicate: DirectDI.() -> Unit,
         ) {
-            conditions += LoadPredicate(reason, predicate)
+            conditions += LoadPredicate(predicate)
         }
 
         fun build() = FeatureDependencies(

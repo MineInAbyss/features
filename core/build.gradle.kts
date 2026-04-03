@@ -14,7 +14,7 @@ kotlin {
         browser()
         nodejs()
     }
-    wasmJs() {
+    wasmJs {
         browser()
         nodejs()
     }
@@ -32,8 +32,8 @@ kotlin {
 //        commonTest.dependencies {
 //            implementation(kotlin("test"))
 //        }
-//        all {
-//            languageSettings.enableLanguageFeature("ContextParameters")
-//        }
+        all {
+            languageSettings.enableLanguageFeature("ContextParameters")
+        }
     }
 }

@@ -8,24 +8,38 @@ import org.kodein.di.*
 //    koinModule.single { FeatureManagerBuilder(plugin).apply(setup).build(getKoin()) }
 //}
 
-class FeatureManager(val rootDI: DI) {
+class FeatureManager(rootDI: DI) {
     private val loadedFeatures = mutableSetOf<Feature<*>>()
-    private val dependencies = mutableMapOf<Feature<*>, MutableSet<Feature<*>>>()
+    private val dependencies = mutableMapOf<Feature<*>, MutableList<Feature<*>>>()
     private val enabledFeatures = mutableMapOf<String, FeatureInstance>()
     private val logger = rootDI.direct.instanceOrNull<Logger>() ?: Logger
     private val defaultModule = DI.Module("default", allowSilentOverride = true) {
         bindSingletonOf(::FeatureContext)
     }
+    val rootDI = DI {
+        extend(rootDI)
+        bindSingleton(overrides = true) { this@FeatureManager }
+    }
+
+    val loaded get() = loadedFeatures.toSet()
 
     fun load(feature: Feature<*>) {
         if (feature in loadedFeatures) return
-        if (!dependenciesMet(feature)) return
 
         feature.dependencies.features.forEach {
-            dependencies.getOrPut(it) { mutableSetOf() }.add(feature)
+            load(it)
+            val deps = dependencies.getOrPut(it) { mutableListOf() }
+            if (feature !in deps) deps.add(feature)
         }
-        feature.onLoad(rootDI.direct)
-        loadedFeatures += feature
+
+        runCatching {
+            feature.onLoad(rootDI.direct)
+        }.onSuccess {
+            loadedFeatures += feature
+            logger.i { "Loaded feature $feature" }
+        }.onFailure {
+            logger.e(it) { "Failed to load feature $feature" }
+        }
     }
 
     fun loadAll(vararg features: Feature<*>) {
@@ -39,47 +53,60 @@ class FeatureManager(val rootDI: DI) {
 //            logger.w { "Not loading '${feature.name}', missing dependencies: [${unmetPluginDeps.joinToString()}]" }
 //            return false
 //        }
-        val unmetConditions = feature.dependencies.conditions.filter { !it.predicate(rootDI.direct) }
+        val unmetConditions = feature.dependencies.conditions.mapNotNull {
+            runCatching { it.predicate(rootDI.direct) }.exceptionOrNull()
+        }
         if (unmetConditions.isNotEmpty()) {
-            logger.i { "Not loading '${feature.name}', conditions not met: [${unmetConditions.joinToString()}]" }
+            logger.e { "Not enabling '${feature.name}', conditions not met: [${unmetConditions.joinToString { it.message ?: "Unmet condition" }}" }
             return false
         }
 
         return true
     }
 
-    fun filterDependenciesMet(features: List<Feature<*>>): List<Feature<*>> {
-        return features.filter { feature -> dependenciesMet(feature) }
-    }
-
-    fun enable(feature: Feature<*>): FeatureInstance {
-        if (feature.name in enabledFeatures) return enabledFeatures.getValue(feature.name)
+    fun enable(feature: Feature<*>): Result<FeatureInstance> {
+        if (feature.name in enabledFeatures) return Result.success(enabledFeatures.getValue(feature.name))
         load(feature)
-//        if (!feature.canEnable()) error("Could not enable $feature")
-        val di = DI {
-            feature.dependencies.features.forEach {
-                val enabled = enabledFeatures[it.name] ?: enable(it)
-                extend(enabled.di, allowOverride = true)
+        if (!dependenciesMet(feature)) return Result.failure(IllegalStateException("Dependencies not met for feature"))
+
+        val di = runCatching {
+            DI {
+                feature.dependencies.features.forEach {
+                    val enabled = enabledFeatures[it.name] ?: enable(it).getOrThrow()
+                    extend(enabled.di, allowOverride = true)
+                }
+                extend(rootDI, allowOverride = true)
+                import(defaultModule, allowOverride = true)
+                feature.diBuilder(this)
             }
-            extend(rootDI, allowOverride = true)
-            import(defaultModule, allowOverride = true)
-            feature.diBuilder(this)
-        }
+        }.onFailure {
+            logger.e(it) { "Failed to enable feature $feature, error creating its dependencies" }
+        }.getOrElse { return Result.failure(it) }
         val instance = FeatureInstance(di)
+        logger.i { "Enabled feature '$feature'" }
         enabledFeatures[feature.name] = instance
-        return instance
+        return Result.success(instance)
     }
 
     fun disable(feature: Feature<*>): List<Feature<*>> {
         if (feature.name !in enabledFeatures) return emptyList()
-        val children = dependencies[feature]?.flatMap { disable(it) } ?: emptyList()
-        enabledFeatures.remove(feature.name)?.close()
+        val children = dependencies[feature]
+            ?.reversed()
+            ?.flatMap { disable(it) }
+            ?: emptyList()
+        runCatching { enabledFeatures.remove(feature.name)?.close() }
+            .onSuccess {
+                logger.i { "Disabled feature '$feature'" }
+            }.onFailure {
+                logger.e(it) { "Error disabling feature '$feature'" }
+            }
         return (children + feature).distinct()
     }
 
-    fun reload(feature: Feature<*>) {
+    fun reload(feature: Feature<*>): Boolean {
         val disabled = disable(feature)
         disabled.reversed().forEach { enable(it) }
+        return true
     }
 
     fun enableAll() {
@@ -87,7 +114,8 @@ class FeatureManager(val rootDI: DI) {
     }
 
     fun disableAll() {
-        enabledFeatures.keys.toList().forEach { name -> disable(loadedFeatures.first { it.name == name }) } //TODO cleanup
+        enabledFeatures.keys.toList()
+            .forEach { name -> disable(loadedFeatures.first { it.name == name }) } //TODO cleanup
     }
 
     fun reloadAll() {
@@ -102,6 +130,8 @@ class FeatureManager(val rootDI: DI) {
 
     fun <T : Any> get(feature: Feature<T>): T =
         getOrNull(feature) ?: error("Feature $feature was not loaded")
+
+    fun getNamed(name: String): Feature<*>? = loadedFeatures.find { it.name == name }
 
     inline fun <reified T : Any> getScoped(feature: Feature<*>): T? =
         getInstance(feature)?.di?.direct?.let { it.instance<T>() }
