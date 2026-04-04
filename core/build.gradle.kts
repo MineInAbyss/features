@@ -1,6 +1,6 @@
 plugins {
     id(libs.plugins.kotlin.multiplatform.get().pluginId)
-    alias(miaConventions.plugins.mia.publication)
+    id(miaConventions.plugins.mia.publication.get().pluginId)
 }
 
 repositories {
