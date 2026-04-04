@@ -1,25 +1,31 @@
 package com.mineinabyss.features
 
-import org.kodein.di.DI
-import org.kodein.di.DirectDI
-import kotlin.reflect.KClass
+import com.mineinabyss.features.impl.FeatureKeyImpl
 
+/**
+ * A dependency injection context that may be [closed][close].
+ *
+ * @see DI
+ */
+interface Feature : DI, AutoCloseable {
+    fun addCloseable(closeable: AutoCloseable)
 
-data class Feature<T : Any>(
-    val name: String,
-    val type: KClass<T>, //TODO remove when updating geary, handled by extract now but needed for interop
-    val dependencies: FeatureDependencies,
-    val subFeatures: Set<Feature<*>>,
-    val diBuilder: DI.Builder.() -> Unit,
-    val extract: DirectDI.() -> T,
-    val onLoad: DirectDI.() -> Unit,
-) {
-    fun overrideScope(block: DI.Builder.() -> Unit): Feature<T> {
-        return copy(diBuilder = {
-            diBuilder()
-            block()
-        })
-    }
+    fun addCloseable(closeable: () -> Unit) = addCloseable(AutoCloseable { closeable() })
+}
 
-    override fun toString(): String = name
+/**
+ * A dependency injection conte that may register new value providers and be [closed][close].
+ *
+ * @see Feature
+ * @see MutableDI
+ */
+interface MutableFeature : Feature, MutableDI {
+    fun dependsOn(other: FeatureKey): Feature
+}
+
+fun feature(
+    name: String,
+    block: MutableFeature.() -> Unit,
+): FeatureKey {
+    return FeatureKeyImpl(name, configure = block)
 }

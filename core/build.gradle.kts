@@ -26,12 +26,14 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
 //            implementation(idofrontLibs.kotlinx.serialization.json)
-            implementation(libs.kodein.di)
+//            implementation(libs.kodein.di)
             implementation(libs.kermit)
         }
-//        commonTest.dependencies {
-//            implementation(kotlin("test"))
-//        }
+
+        jvmTest.dependencies {
+            implementation(kotlin("test-junit"))
+        }
+
         all {
             languageSettings.enableLanguageFeature("ContextParameters")
         }
