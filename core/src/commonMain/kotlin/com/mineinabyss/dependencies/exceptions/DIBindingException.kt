@@ -22,7 +22,7 @@ class DIBindingException(
                     repeat(index * 2 - 1) { append(' ') }
                     append("⬑")
                 }
-                append(prettyPrint(pair, simpleName = false))
+                append(prettyPrint(pair))
                 if (index != types.lastIndex) appendLine()
             }
         }
@@ -33,9 +33,8 @@ class DIBindingException(
 //        }, types.drop(1))
     }
 
-    private fun prettyPrint(type: Pair<KType, String?>, simpleName: Boolean = true) = buildString {
-        if (simpleName) append((type.first.classifier as KClass<*>).simpleName)
-        else append((type.first.classifier as KClass<*>).qualifiedName)
+    private fun prettyPrint(type: Pair<KType, String?>) = buildString {
+        append((type.first.classifier as KClass<*>).simpleName)
         if (type.second != null) append("(key=${type.second})")
     }
 
