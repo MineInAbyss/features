@@ -1,6 +1,7 @@
 package com.mineinabyss.dependencies
 
 import com.mineinabyss.dependencies.DI.Module
+import com.mineinabyss.dependencies.exceptions.DIBindingException
 import com.mineinabyss.dependencies.impl.ModuleImpl
 import com.mineinabyss.dependencies.impl.MutableDIImpl
 import kotlin.reflect.KType
@@ -157,7 +158,13 @@ inline fun <reified T> MutableDI.single(
     crossinline block: DI.() -> T,
 ): InjectedValue<T> = Put(
     typeOf<T>() to key,
-    InjectedValueImpl(ignoreOverride, lazy { block() })
+    InjectedValueImpl(ignoreOverride, lazy {
+        try {
+            block()
+        } catch (e: Throwable) {
+            throw DIBindingException.of(typeOf<T>() to key, e)
+        }
+    })
 )
 
 /**
@@ -175,7 +182,12 @@ inline fun <reified T> MutableDI.factory(
     return Put(
         typeOf<T>() to key,
         InjectedValueImpl(ignoreOverride, object : Lazy<T> {
-            override val value: T get() = block()
+            override val value: T
+                get() = try {
+                    block()
+                } catch (e: Throwable) {
+                    throw DIBindingException.of(typeOf<T>() to key, e)
+                }
 
             override fun isInitialized(): Boolean = false
         })

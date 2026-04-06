@@ -8,12 +8,11 @@ class DIScope(root: MutableDI.() -> Unit = {}) : DIAware, AutoCloseable {
 
     val root = DI.invoke(this) {
         single<DIScope>(ignoreOverride = true) { this@DIScope }
-        single<Logger>(ignoreOverride = true) { Logger }
         root()
     }
     override val di: DI = this.root
 
-    val logger by getLazy<Logger>()
+    val logger by lazy { getOrNull<Logger>() ?: Logger }
 
     fun <T> load(feature: DI.ModuleWithConfig<T>, configure: T.() -> Unit): DI {
         return load(module("$feature-configuration") {
@@ -24,15 +23,14 @@ class DIScope(root: MutableDI.() -> Unit = {}) : DIAware, AutoCloseable {
     fun load(feature: DI.Module): DI {
         val key = feature.key
         if (key in _loaded) return _loaded.getValue(key)
-        return loadCatching(feature).getOrThrow()
+        val created = feature.create(root)
+        _loaded[key] = created
+        created.addCloseable { _loaded.remove(key) }
+        return created
     }
 
     fun loadCatching(feature: DI.Module): Result<DI> {
-        val key = feature.key
-        if (key in _loaded) return Result.success(_loaded.getValue(key))
-        return runCatching { feature.create(root) }.onSuccess {
-            _loaded[key] = it
-            it.addCloseable { _loaded.remove(key) }
+        return runCatching { load(feature) }.onSuccess {
             logger.i { "Loaded feature $feature" }
         }.onFailure {
             if (it is IllegalArgumentException) {
@@ -63,7 +61,7 @@ class DIScope(root: MutableDI.() -> Unit = {}) : DIAware, AutoCloseable {
         val key = feature.key
         val feat = _loaded[key] ?: return
         runCatching { feat.close() }.onSuccess {
-            logger.i { "Loaded feature $feature" }
+            logger.i { "Unloaded feature $feature" }
         }.onFailure {
             logger.e(it) { "Failed to unload $feature" }
         }
@@ -75,7 +73,7 @@ class DIScope(root: MutableDI.() -> Unit = {}) : DIAware, AutoCloseable {
     }
 
     companion object {
-        fun new(builder: MutableDI.() -> Unit = {}): DIScope {
+        inline fun new(noinline builder: MutableDI.() -> Unit = {}): DIScope {
             return DIScope(builder)
         }
     }

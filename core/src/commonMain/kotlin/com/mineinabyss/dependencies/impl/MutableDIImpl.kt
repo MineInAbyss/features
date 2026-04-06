@@ -1,6 +1,7 @@
 package com.mineinabyss.dependencies.impl
 
 import com.mineinabyss.dependencies.*
+import com.mineinabyss.dependencies.exceptions.DIBindingException
 import kotlin.reflect.KType
 
 class MutableDIImpl(
@@ -22,11 +23,11 @@ class MutableDIImpl(
     }
 
     override fun <T> Get(type: Pair<KType, String?>): T {
-        return _injected[type]?.value as? T ?: error("Could not get type $type")
+        return _injected[type]?.value as? T ?: throw DIBindingException.of(type, null)
     }
 
     override fun <T> Lazy(type: Pair<KType, String?>): InjectedValue<T> {
-        return _injected[type] as? InjectedValue<T> ?: error("Could not get type $type")
+        return _injected[type] as? InjectedValue<T> ?: throw DIBindingException.of(type, null)
     }
 
 

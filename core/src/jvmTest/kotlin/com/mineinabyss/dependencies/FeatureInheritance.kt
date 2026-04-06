@@ -25,7 +25,6 @@ class FeatureInheritance {
         val featureB = module("featureB") {
             val string by single { "hello ${get<String>("configB")}" }
             val test by single { new(FeatureInheritance::Example) }
-
             import(singleModule(featureA))
             println(test.string)
 
