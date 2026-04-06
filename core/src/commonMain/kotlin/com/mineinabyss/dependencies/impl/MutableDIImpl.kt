@@ -11,6 +11,7 @@ class MutableDIImpl(
     private val dependsOn = mutableSetOf<DI.Module>()
     private val _injected = mutableMapOf<Pair<KType, String?>, InjectedValue<*>>()
     override val injected get() = _injected.map { it.key to it.value }
+    private var closed = false
 
     override fun <T> Put(type: Pair<KType, String?>, property: InjectedValue<T>): InjectedValue<T> {
         val existing = _injected[type]
@@ -58,6 +59,8 @@ class MutableDIImpl(
     }
 
     override fun close() {
+        if (closed) return
+        closed = true
         closeables.reversed().forEach { it.close() }
     }
 }
