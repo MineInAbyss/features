@@ -1,8 +1,8 @@
 package features
 
-import com.mineinabyss.features.FeatureManager
-import com.mineinabyss.features.feature
+import com.mineinabyss.features.DIScope
 import com.mineinabyss.features.get
+import com.mineinabyss.features.module
 import com.mineinabyss.features.single
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -11,7 +11,7 @@ class FeatureOverrides {
     @Test
     fun `features can have values overridden`() {
         // Arrange - Feature defines its own value providers
-        val featureA = feature("featureA") {
+        val featureA = module("featureA") {
             val string by single { "Feature A's string" }
             val length by single<Int>("length") { string.length }
 
@@ -23,7 +23,7 @@ class FeatureOverrides {
             single(ignoreOverride = true) { "Changed" }
         }
 
-        val manager = FeatureManager()
+        val manager = DIScope()
 
         // Act - Loading override loads the feature with 'Changed' as though it is featureA
         val overrideInstance = manager.load(withOverride).getOrThrow()

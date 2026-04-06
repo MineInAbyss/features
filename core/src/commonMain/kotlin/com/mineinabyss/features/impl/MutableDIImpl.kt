@@ -1,21 +1,49 @@
 package com.mineinabyss.features.impl
 
-import com.mineinabyss.features.DI
-import com.mineinabyss.features.InjectedValue
-import com.mineinabyss.features.MutableDI
+import com.mineinabyss.features.*
 import kotlin.reflect.KType
 
-class MutableDIImpl : MutableDI {
+class MutableDIImpl(
+    override val scope: DIScope,
+) : MutableDI {
+    private val closeables = mutableListOf<AutoCloseable>()
+    private val dependsOn = mutableSetOf<DI.Module>()
     private val _injected = mutableMapOf<Pair<KType, String?>, InjectedValue<*>>()
     override val injected get() = _injected.map { it.key to it.value }
-    override fun <T> Put(type: Pair<KType, String?>, property: InjectedValue<T>): Lazy<T> {
+
+    override fun <T> Put(type: Pair<KType, String?>, property: InjectedValue<T>): InjectedValue<T> {
         val existing = _injected[type]
         if (existing != null) {
-            if (existing.ignoreOverride) return existing.lazy as Lazy<T>
+            if (existing.ignoreOverride || existing == property) return existing as InjectedValue<T>
             error("Cannot override injected type: $type")
         }
         _injected[type] = property
-        return property.lazy
+        return property
+    }
+
+    override fun <T> Get(type: Pair<KType, String?>): T {
+        return _injected[type]?.value as? T ?: error("Could not get type $type")
+    }
+
+    override fun <T> Lazy(type: Pair<KType, String?>): InjectedValue<T> {
+        return _injected[type] as? InjectedValue<T> ?: error("Could not get type $type")
+    }
+
+
+    override fun singleModule(di: DI.Module): DI {
+        val loaded = scope.load(di)
+        if (di in dependsOn) return loaded
+        dependsOn += di
+        loaded.addCloseable { this@MutableDIImpl.close() }
+        return loaded
+    }
+
+    override fun submodule(di: DI.Module): DI {
+        if (di in dependsOn) error("Cannot create a submodule twice")
+        dependsOn += di
+        val newInstance = di.create(this)
+        addCloseable { newInstance.close() }
+        return newInstance
     }
 
     override fun import(context: DI) {
@@ -24,11 +52,11 @@ class MutableDIImpl : MutableDI {
         }
     }
 
-    override fun <T> Get(type: Pair<KType, String?>): T {
-        return _injected[type]?.lazy?.value as? T ?: error("Could not get type $type")
+    override fun addCloseable(closeable: AutoCloseable) {
+        closeables += closeable
     }
 
-    override fun <T> Lazy(type: Pair<KType, String?>): Lazy<T> {
-        return _injected[type]?.lazy as? Lazy<T> ?: error("Could not get type $type")
+    override fun close() {
+        closeables.reversed().forEach { it.close() }
     }
 }
