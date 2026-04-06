@@ -1,8 +1,8 @@
-package com.mineinabyss.features.impl
+package com.mineinabyss.dependencies.impl
 
-import com.mineinabyss.features.DI
-import com.mineinabyss.features.DI.Module
-import com.mineinabyss.features.MutableDI
+import com.mineinabyss.dependencies.DI
+import com.mineinabyss.dependencies.DI.Module
+import com.mineinabyss.dependencies.MutableDI
 
 class ModuleImpl(
     override val name: String,

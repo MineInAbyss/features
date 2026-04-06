@@ -1,3 +1,3 @@
-# Features
+# dependencies-kt
 
-Simple feature DSL built around Kodein-DI.
+Simple DI framework for kotlin, designed for dependency modules that can be closed, restarted, and depend on each other.

@@ -1,8 +1,8 @@
-package com.mineinabyss.features
+package com.mineinabyss.dependencies
 
-import com.mineinabyss.features.DI.Module
-import com.mineinabyss.features.impl.ModuleImpl
-import com.mineinabyss.features.impl.MutableDIImpl
+import com.mineinabyss.dependencies.DI.Module
+import com.mineinabyss.dependencies.impl.ModuleImpl
+import com.mineinabyss.dependencies.impl.MutableDIImpl
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 

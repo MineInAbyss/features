@@ -1,4 +1,4 @@
-package com.mineinabyss.features
+package com.mineinabyss.dependencies
 
 import co.touchlab.kermit.Logger
 

@@ -1,6 +1,5 @@
-package features
+package com.mineinabyss.dependencies
 
-import com.mineinabyss.features.*
 import org.junit.Test
 import kotlin.random.Random
 
@@ -35,7 +34,7 @@ class FeatureInheritance {
             }
         }
         val scope = DIScope()
-        scope.load(featureB).getOrThrow()
+        scope.load(featureB)
         scope.unload(featureA)
     }
 }

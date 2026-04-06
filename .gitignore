@@ -3,3 +3,4 @@ build/
 .idea
 .kotlin
 kotlin-js-store
+out

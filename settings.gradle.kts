@@ -1,4 +1,4 @@
-rootProject.name = "features"
+rootProject.name = "dependencies"
 
 pluginManagement {
     repositories {

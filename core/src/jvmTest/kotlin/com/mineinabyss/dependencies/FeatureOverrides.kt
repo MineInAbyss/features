@@ -1,9 +1,5 @@
-package features
+package com.mineinabyss.dependencies
 
-import com.mineinabyss.features.DIScope
-import com.mineinabyss.features.get
-import com.mineinabyss.features.module
-import com.mineinabyss.features.single
 import org.junit.Test
 import kotlin.test.assertEquals
 
@@ -26,8 +22,8 @@ class FeatureOverrides {
         val manager = DIScope()
 
         // Act - Loading override loads the feature with 'Changed' as though it is featureA
-        val overrideInstance = manager.load(withOverride).getOrThrow()
-        val featureAInstance = manager.load(featureA).getOrThrow()
+        val overrideInstance = manager.load(withOverride)
+        val featureAInstance = manager.load(featureA)
 
         // Assert - Feature only got loaded once
         assertEquals(featureAInstance, overrideInstance)

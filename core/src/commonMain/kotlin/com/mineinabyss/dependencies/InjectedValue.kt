@@ -1,4 +1,4 @@
-package com.mineinabyss.features
+package com.mineinabyss.dependencies
 
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty

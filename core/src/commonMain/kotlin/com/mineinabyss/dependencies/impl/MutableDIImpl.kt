@@ -1,6 +1,6 @@
-package com.mineinabyss.features.impl
+package com.mineinabyss.dependencies.impl
 
-import com.mineinabyss.features.*
+import com.mineinabyss.dependencies.*
 import kotlin.reflect.KType
 
 class MutableDIImpl(

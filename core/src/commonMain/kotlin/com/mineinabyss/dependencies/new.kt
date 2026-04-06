@@ -1,4 +1,4 @@
-package com.mineinabyss.features
+package com.mineinabyss.dependencies
 
 inline fun <T> DI.new(block: () -> T): T = block()
 inline fun <reified A, T> DI.new(block: (A) -> T): T = block(get())
