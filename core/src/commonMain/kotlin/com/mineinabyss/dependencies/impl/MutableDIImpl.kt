@@ -6,7 +6,7 @@ import kotlin.reflect.KType
 
 class MutableDIImpl(
     override val scope: DIScope,
-) : MutableDI {
+) : MutableDIContext {
     private val closeables = mutableListOf<AutoCloseable>()
     private val dependsOn = mutableSetOf<DI.Module>()
     private val _injected = mutableMapOf<Pair<KType, String?>, InjectedValue<*>>()
@@ -23,8 +23,8 @@ class MutableDIImpl(
         return property
     }
 
-    override fun <T> Get(type: Pair<KType, String?>): T {
-        return _injected[type]?.value as? T ?: throw DIBindingException.of(type, null)
+    override fun <T> Get(type: Pair<KType, String?>): T? {
+        return _injected[type]?.value as? T
     }
 
     override fun <T> Lazy(type: Pair<KType, String?>): InjectedValue<T> {

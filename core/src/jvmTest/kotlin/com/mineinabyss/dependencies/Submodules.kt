@@ -15,7 +15,7 @@ class Submodules {
 
             println("Length from child is ${get<Int>("length")}")
         }
-        DIScope.new().load(parent)
+        scope().load(parent)
     }
 
     @Test

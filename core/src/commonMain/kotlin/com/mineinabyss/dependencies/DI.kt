@@ -1,85 +1,62 @@
 package com.mineinabyss.dependencies
 
+import com.mineinabyss.dependencies.DI.Companion.invoke
 import com.mineinabyss.dependencies.DI.Module
-import com.mineinabyss.dependencies.exceptions.DIBindingException
 import com.mineinabyss.dependencies.impl.ModuleImpl
-import com.mineinabyss.dependencies.impl.MutableDIImpl
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 import kotlin.reflect.KType
-import kotlin.reflect.typeOf
-
-interface DIAware : AutoCloseable {
-    val di: DI
-
-    override fun close() {
-        di.close()
-    }
-}
 
 /**
  * A dependency injection context, values are evaluated lazily.
  *
  * A value *provider* can never change, though calling [Get] twice may return different values
  * when using a factory provider.
+ *
+ * @see MutableDIContext
  */
-@FeatureDSLMarker
-interface DI : DIAware, AutoCloseable {
+interface DIContext : DI, AutoCloseable {
     val scope: DIScope
 
-    override val di: DI get() = this
+    override val di: DIContext get() = this
 
-    fun <T> Get(type: Pair<KType, String?>): T
+    fun <T> Get(type: Pair<KType, String?>): T?
     fun <T> Lazy(type: Pair<KType, String?>): InjectedValue<T>
 
     fun addCloseable(closeable: AutoCloseable)
 
     val injected: List<Pair<Pair<KType, String?>, InjectedValue<*>>>
+}
 
-    interface Module {
-        val name: String
-        val key: Key
-
-        fun create(parent: DI): DI
-
-        fun override(beforeLoad: MutableDI.() -> Unit): Module
-
-        interface Key
+/**
+ * Creates a child [DI] context which has all of its parent bindings imported.
+ *
+ * Ensures the child context closes when the parent closes.
+ */
+@OptIn(ExperimentalContracts::class)
+inline fun DI.subcontext(builder: MutableDI.() -> Unit = {}): DI {
+    contract {
+        callsInPlace(builder, InvocationKind.EXACTLY_ONCE)
     }
-
-    fun childDI(): DI {
-        val di = invoke(di.scope) { import(this@DI.di) }
-        addCloseable(di)
-        return di
-    }
-
-    interface ModuleWithConfig<T> : Module {
-        fun get(parent: DI): T
-    }
-
-    companion object {
-        operator fun invoke(scope: DIScope = DIScope(), builder: MutableDI.() -> Unit): DI {
-            return MutableDIImpl(scope).apply(builder)
+    return invoke(di.scope) child@{
+        this@subcontext.addCloseable {
+            this@child.close()
         }
+        import(this@subcontext.di)
+        builder()
     }
 }
 
 fun module(
     name: String,
-    block: MutableDI.() -> Unit,
+    block: MutableDI.() -> Unit = {},
 ): Module {
     return ModuleImpl(name, configure = block)
 }
 
-inline fun DIAware.addCloseable(crossinline closeable: () -> Unit) {
-    di.addCloseable(AutoCloseable { closeable() })
-}
-
-fun <T : AutoCloseable> DIAware.addCloseable(closeable: T): T {
-    di.addCloseable(closeable)
-    return closeable
-}
-
-fun DIAware.addCloseables(vararg closeables: AutoCloseable) {
-    closeables.forEach { addCloseable(it) }
+inline fun scope(noinline builder: MutableDI.() -> Unit = {}): DI.Scope {
+    return DIScope(builder)
 }
 
 inline fun <reified T> Module.gets(): DI.ModuleWithConfig<T> {
@@ -87,15 +64,21 @@ inline fun <reified T> Module.gets(): DI.ModuleWithConfig<T> {
         override fun get(parent: DI): T {
             return parent.get<T>()
         }
+
+        override fun toString(): String {
+            return name
+        }
     }
 }
 
 /**
  * A dependency injection context that may register value providers.
  *
- * @see DI
+ * @see DIContext
  */
-interface MutableDI : DI {
+interface MutableDIContext : DIContext, MutableDI {
+    override val di: MutableDIContext get() = this
+
     fun <T> Put(type: Pair<KType, String?>, property: InjectedValue<T>): InjectedValue<T>
 
     /**
@@ -128,73 +111,3 @@ interface MutableDI : DI {
     fun import(context: DI)
 }
 
-/**
- * Gets a value of type [T], optionally keyed by [key].
- *
- * Immediately throws an error if not already registered.
- */
-inline fun <reified T> DIAware.get(key: String? = null): T = di.Get(typeOf<T>() to key)
-
-//TODO simplify
-inline fun <reified T> DIAware.getOrNull(key: String? = null): T? = runCatching { di.Get<T>(typeOf<T>() to key) }.getOrNull()
-
-/**
- * Gets a value of type [T], optionally keyed by [key] as a delegate.
- * Only evaluates when first read.
- *
- * Immediately throws an error if not already registered.
- */
-inline fun <reified T> DIAware.getLazy(key: String? = null): InjectedValue<T> = di.Lazy(typeOf<T>() to key)
-
-/**
- * Registers a value of type [T], optionally keyed by [key].
- *
- * Throws an error if already registered, unless the existing key was marked with [ignoreOverride],
- * in this case redirects to the existing value.
- */
-inline fun <reified T> MutableDI.single(
-    key: String? = null,
-    ignoreOverride: Boolean = false,
-    crossinline block: DI.() -> T,
-): InjectedValue<T> = Put(
-    typeOf<T>() to key,
-    InjectedValueImpl(ignoreOverride, lazy {
-        try {
-            block()
-        } catch (e: Throwable) {
-            throw DIBindingException.of(typeOf<T>() to key, e)
-        }
-    })
-)
-
-/**
- * Registers a factory function for type [T], optionally keyed by [key].
- * Each [get] request will create a new value.
- *
- * Throws an error if already registered, unless the existing key was marked with [ignoreOverride],
- * in this case redirects to the existing value.
- */
-inline fun <reified T> MutableDI.factory(
-    key: String? = null,
-    ignoreOverride: Boolean = false,
-    noinline block: DI.() -> T,
-): InjectedValue<T> {
-    return Put(
-        typeOf<T>() to key,
-        InjectedValueImpl(ignoreOverride, object : Lazy<T> {
-            override val value: T
-                get() = try {
-                    block()
-                } catch (e: Throwable) {
-                    throw DIBindingException.of(typeOf<T>() to key, e)
-                }
-
-            override fun isInitialized(): Boolean = false
-        })
-    )
-}
-
-context(context: MutableDI)
-inline fun <reified R> InjectedValue<R>.and(): InjectedValue<R> {
-    return context.single<R>(ignoreOverride = ignoreOverride) { this@and.value }
-}

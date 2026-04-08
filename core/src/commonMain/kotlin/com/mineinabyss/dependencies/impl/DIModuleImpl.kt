@@ -3,6 +3,7 @@ package com.mineinabyss.dependencies.impl
 import com.mineinabyss.dependencies.DI
 import com.mineinabyss.dependencies.DI.Module
 import com.mineinabyss.dependencies.MutableDI
+import com.mineinabyss.dependencies.import
 
 class ModuleImpl(
     override val name: String,
@@ -11,13 +12,13 @@ class ModuleImpl(
 ) : Module, Module.Key {
     override val key = key ?: this
 
-    override fun create(parent: DI): DI = DI(parent.scope) {
+    override fun create(parent: DI): DI = DI(parent.di.scope) {
         import(parent)
         configure(this)
     }
 
     override fun override(beforeLoad: MutableDI.() -> Unit): Module {
-        return ModuleImpl(name, key = this@ModuleImpl) {
+        return ModuleImpl(name, key = this@ModuleImpl.key) {
             beforeLoad()
             configure()
         }
