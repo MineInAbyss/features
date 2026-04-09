@@ -109,5 +109,7 @@ interface MutableDIContext : DIContext, MutableDI {
      * ```
      */
     fun import(context: DI)
+
+    fun setAccessible(type: Pair<KType, String?>, accessible: Boolean)
 }
 

@@ -33,16 +33,22 @@ inline fun <reified T> MutableDI.single(
     key: String? = null,
     ignoreOverride: Boolean = false,
     crossinline block: DI.() -> T,
-): InjectedValue<T> = di.Put(
-    typeOf<T>() to key,
-    InjectedValueImpl(ignoreOverride, lazy {
-        try {
-            block(di)
-        } catch (e: Throwable) {
-            throw DIBindingException.of(typeOf<T>() to key, e)
-        }
-    })
-)
+): InjectedValue<T> {
+    val type = typeOf<T>() to key
+    return di.Put(
+        type,
+        InjectedValueImpl(ignoreOverride, lazy {
+            try {
+                di.setAccessible(type, false)
+                block(di)
+            } catch (e: Throwable) {
+                throw DIBindingException.of(type, e)
+            } finally {
+                di.setAccessible(type, true)
+            }
+        })
+    )
+}
 
 /**
  * Registers a factory function for type [T], optionally keyed by [key].
@@ -56,14 +62,18 @@ inline fun <reified T> MutableDI.factory(
     ignoreOverride: Boolean = false,
     noinline block: DI.() -> T,
 ): InjectedValue<T> {
+    val type = typeOf<T>() to key
     return di.Put(
-        typeOf<T>() to key,
+        type,
         InjectedValueImpl(ignoreOverride, object : Lazy<T> {
             override val value: T
                 get() = try {
+                    di.setAccessible(type, false)
                     block(di)
                 } catch (e: Throwable) {
-                    throw DIBindingException.of(typeOf<T>() to key, e)
+                    throw DIBindingException.of(type, e)
+                } finally {
+                    di.setAccessible(type, true)
                 }
 
             override fun isInitialized(): Boolean = false

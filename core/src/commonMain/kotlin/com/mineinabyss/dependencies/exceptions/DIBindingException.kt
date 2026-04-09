@@ -15,8 +15,13 @@ class DIBindingException(
             else "Error while creating type ${prettyPrint(types.first())}"
         }
         return buildString {
-            if (cause != null) appendLine("Could not create type ${prettyPrint(types.last())}, it depends on ${prettyPrint(types.first())} which threw an error")
-            else appendLine("Could not create type ${prettyPrint(types.last())}, it depends on ${prettyPrint(types.first())} which was not found")
+            val first = types.first()
+            val last = types.last()
+            when {
+                first == last -> appendLine("Could not create type ${prettyPrint(first)}, got a recursive call back to itself")
+                cause != null -> appendLine("Could not create type ${prettyPrint(last)}, it depends on ${prettyPrint(first)} which threw an error")
+                else -> appendLine("Could not create type ${prettyPrint(last)}, it depends on ${prettyPrint(first)} which was not found")
+            }
             types.forEachIndexed { index, pair ->
                 if (index != 0) {
                     repeat(index * 2 - 1) { append(' ') }

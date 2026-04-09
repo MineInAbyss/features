@@ -12,6 +12,7 @@ class MutableDIImpl(
     private val _injected = mutableMapOf<Pair<KType, String?>, InjectedValue<*>>()
     override val injected get() = _injected.map { it.key to it.value }
     private var closed = false
+    private val inaccessible = mutableSetOf<Pair<KType, String?>>()
 
     override fun <T> Put(type: Pair<KType, String?>, property: InjectedValue<T>): InjectedValue<T> {
         val existing = _injected[type]
@@ -24,6 +25,7 @@ class MutableDIImpl(
     }
 
     override fun <T> Get(type: Pair<KType, String?>): T? {
+        if (type in inaccessible) throw DIBindingException.of(type, null)
         return _injected[type]?.value as? T
     }
 
@@ -52,6 +54,11 @@ class MutableDIImpl(
         context.injected.forEach { (key, value) ->
             Put(key, value)
         }
+    }
+
+    override fun setAccessible(type: Pair<KType, String?>, accessible: Boolean) {
+        if (accessible) inaccessible.remove(type)
+        else inaccessible.add(type)
     }
 
     override fun addCloseable(closeable: AutoCloseable) {

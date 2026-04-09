@@ -77,6 +77,9 @@ class DIScope(root: MutableDI.() -> Unit = {}) : DI.Scope, DI, AutoCloseable {
         val key = module.key
         val feat = _loaded[key] ?: return
         feat.close()
+        // Ensure removed in case of FailedModule
+        _loaded.remove(key)
+        loadOrder.remove(module)
     }
 
     fun unloadAll() {
