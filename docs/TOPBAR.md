@@ -1,1 +1,1 @@
-[:brand-github: GitHub](https://github.com/MineInAbyss/dependencies)
+[:brand-github: GitHub](https://github.com/MineInAbyss/dependencies-kt)
