@@ -33,9 +33,9 @@ class MutableDIImpl(
         return _injected[type] as? InjectedValue<T> ?: throw DIBindingException.of(type, null)
     }
 
-
     override fun singleModule(di: DI.Module): DI {
-        val loaded = scope.load(di)
+        val loaded = scope.loadCatching(di).getOrNull()
+        if (loaded == null || loaded == FailedModule) throw IllegalArgumentException("Depends on module [${di.name}] which failed to load.")
         if (di in dependsOn) return loaded
         dependsOn += di
         loaded.addCloseable { this@MutableDIImpl.close() }

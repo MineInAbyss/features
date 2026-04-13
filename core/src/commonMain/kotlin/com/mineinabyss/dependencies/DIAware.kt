@@ -2,6 +2,7 @@ package com.mineinabyss.dependencies
 
 import co.touchlab.kermit.Logger
 import com.mineinabyss.dependencies.exceptions.DIBindingException
+import com.mineinabyss.dependencies.exceptions.LoadResult
 import com.mineinabyss.dependencies.impl.MutableDIImpl
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
@@ -16,7 +17,7 @@ import kotlin.reflect.typeOf
  * @see DIContext
  * @see MutableDI
  */
-@FeatureDSLMarker
+@DependenciesDSLMarker
 interface DI : AutoCloseable {
     val di: DIContext
 
@@ -58,7 +59,7 @@ interface DI : AutoCloseable {
 
         fun load(module: Module): DI
         fun unload(module: Module)
-        fun reload(module: Module)
+        fun reload(module: Module): LoadResult
 
         val loaded: List<Module>
     }

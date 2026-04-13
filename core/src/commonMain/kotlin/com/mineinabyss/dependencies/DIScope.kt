@@ -1,6 +1,7 @@
 package com.mineinabyss.dependencies
 
 import co.touchlab.kermit.Logger
+import com.mineinabyss.dependencies.exceptions.LoadResult
 
 class DIScope(root: MutableDI.() -> Unit = {}) : DI.Scope, DI, AutoCloseable {
     private val _loaded = mutableMapOf<DI.Module.Key, DI>()
@@ -35,9 +36,9 @@ class DIScope(root: MutableDI.() -> Unit = {}) : DI.Scope, DI, AutoCloseable {
         created.addCloseable {
             _loaded.remove(key)
             loadOrder.remove(module)
-            logger.i { "Unloaded feature $module" }
+            logger.i { "Unloaded module $module" }
         }
-        logger.i { "Loaded feature $module" }
+        logger.i { "Loaded module $module" }
         return created
     }
 
@@ -45,41 +46,52 @@ class DIScope(root: MutableDI.() -> Unit = {}) : DI.Scope, DI, AutoCloseable {
         modules.forEach { load(it) }
     }
 
-    override fun reload(module: DI.Module) {
+    override fun reload(module: DI.Module): LoadResult {
         val beforeUnload = loadOrder.toList()
         unload(module)
         val unloadedDependencies = beforeUnload.minus(loadOrder.toSet())
-        loadAll(*unloadedDependencies.toTypedArray())
+        return loadAllCatching(*unloadedDependencies.toTypedArray())
     }
 
-    fun reload(vararg module: DI.Module) {
+    fun reload(vararg module: DI.Module): LoadResult {
         val beforeUnload = loadOrder.toList()
         module.forEach { unload(it) }
         val unloadedDependencies = beforeUnload.minus(loadOrder.toSet())
-        loadAll(*unloadedDependencies.toTypedArray())
+        return loadAllCatching(*unloadedDependencies.toTypedArray())
     }
 
-    fun reloadAll() {
+    fun reloadAll(): LoadResult {
         val load = loadOrder.toTypedArray()
         unloadAll()
-        loadAll(*load)
+        return loadAllCatching(*load)
     }
 
-    operator fun get(module: DI.Module): DI? {
-        return _loaded[module.key]?.di
+    fun getOrNull(module: DI.Module): DI? {
+        return _loaded[module.key]?.takeIf { it != FailedModule }?.di
     }
 
-    operator fun <T> get(module: DI.ModuleWithConfig<T>): T? {
-        return _loaded[module.key]?.di?.let { module.get(it) }
+    fun <T> getOrNull(module: DI.ModuleWithConfig<T>): T? {
+        return _loaded[module.key]?.takeIf { it != FailedModule }?.di?.let { module.get(it) }
+    }
+
+    operator fun get(module: DI.Module): DI {
+        return getOrNull(module) ?: error("Failed to get module ${module.name}")
+    }
+
+    operator fun <T> get(module: DI.ModuleWithConfig<T>): T {
+        return getOrNull(module) ?: error("Failed to get module ${module.name}")
     }
 
     override fun unload(module: DI.Module) {
         val key = module.key
         val feat = _loaded[key] ?: return
-        feat.close()
-        // Ensure removed in case of FailedModule
-        _loaded.remove(key)
-        loadOrder.remove(module)
+        try {
+            feat.close()
+        } finally {
+            // Ensure removed in case of FailedModule or error
+            _loaded.remove(key)
+            loadOrder.remove(module)
+        }
     }
 
     fun unloadAll() {
@@ -94,13 +106,18 @@ class DIScope(root: MutableDI.() -> Unit = {}) : DI.Scope, DI, AutoCloseable {
 fun DI.Scope.loadCatching(module: DI.Module): Result<DI> {
     return runCatching { load(module) }.onFailure {
         if (it is IllegalArgumentException) {
-            logger.e { "Failed to load feature $module: ${it.message}" }
+            logger.e { "Failed to load module ${module.name}: ${it.message}" }
         } else {
-            logger.e(it) { "Failed to load feature $module" }
+            logger.e(it) { "Failed to load module ${module.name}" }
         }
     }
 }
 
-fun DI.Scope.loadAllCatching(vararg modules: DI.Module) {
-    modules.forEach { loadCatching(it) }
+/**
+ * Loads passed [modules] and their dependencies, printing error messages instead of throwing them when any fail to load.
+ *
+ * @return Whether all modules successfully loaded
+ */
+fun DI.Scope.loadAllCatching(vararg modules: DI.Module): LoadResult {
+    return LoadResult(modules.associateWith { loadCatching(it) })
 }
